@@ -1,105 +1,117 @@
+const countryInput = document.getElementById('country-input');
+const searchBtn = document.getElementById('search-btn');
+const spinner = document.getElementById('loading-spinner');
+const countryInfo = document.getElementById('country-info');
+const borderingCountries = document.getElementById('bordering-countries');
+const errorMessage = document.getElementById('error-message');
+
+function show(el) {
+  el.classList.remove('hidden');
+}
+
+function hide(el) {
+  el.classList.add('hidden');
+}
+
+function clearUI() {
+  countryInfo.innerHTML = '';
+  borderingCountries.innerHTML = '';
+  errorMessage.textContent = '';
+
+  hide(countryInfo);
+  hide(borderingCountries);
+  hide(errorMessage);
+}
+
+async function fetchJSON(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  return response.json();
+}
 
 async function searchCountry(countryName) {
-  const input = countryName.trim();
-
-  if (!input) {
-    document.getElementById("error").textContent = "Please enter a country name.";
-    document.getElementById("error").style.display = "block";
-    return;
-  }
-
-  
-  const spinner = document.getElementById("spinner");
-  const countryInfo = document.getElementById("country-info");
-  const bordersSection = document.getElementById("border-countries");
-  const errorBox = document.getElementById("error");
-
   try {
-    // Show loading spinner
-    spinner.style.display = "block";
+    const trimmed = countryName.trim();
+    clearUI();
 
-    // Clear previous UI
-    errorBox.style.display = "none";
-    errorBox.textContent = "";
-    countryInfo.innerHTML = "";
-    bordersSection.innerHTML = "";
-
-    // Fetch country data
-    const response = await fetch(
-      `https://restcountries.com/v3.1/name/${encodeURIComponent(input)}`
-    );
-
-    if (!response.ok) {
-      throw new Error("Country not found");
+    if (!trimmed) {
+      throw new Error("Please enter a country name.");
     }
 
-    const data = await response.json();
-
-
-    const country = data[0];
-
   
+    show(spinner);
+
+    
+    const data = await fetchJSON(`https://restcountries.com/v3.1/name/${encodeURIComponent(trimmed)}`);
+
+    
+    const country = data[0];
+    if (!country) {
+      throw new Error("Country not found. Try a different name.");
+    }
+
+    const capital = Array.isArray(country.capital) && country.capital.length > 0 ? country.capital[0] : "N/A";
+    const borders = Array.isArray(country.borders) ? country.borders : [];
+
+    
     countryInfo.innerHTML = `
       <h2>${country.name.common}</h2>
-      <p><strong>Capital:</strong> ${country.capital ? country.capital[0] : "N/A"}</p>
+      <p><strong>Capital:</strong> ${capital}</p>
       <p><strong>Population:</strong> ${country.population.toLocaleString()}</p>
-      <p><strong>Region:</strong> ${country.region || "N/A"}</p>
-      <img src="${country.flags.svg}" alt="${country.name.common} flag" style="max-width:220px; height:auto;">
+      <p><strong>Region:</strong> ${country.region}</p>
+      <img src="${country.flags.svg}" alt="${country.name.common} flag">
     `;
+    show(countryInfo);
 
-    // Fetch bordering countries
-    const borders = country.borders || [];
-
+    
     if (borders.length === 0) {
-      
-      bordersSection.innerHTML = `<p>No bordering countries found.</p>`;
+      borderingCountries.innerHTML = `<p><strong>No bordering countries found.</strong></p>`;
+      show(borderingCountries);
       return;
     }
 
-    
-    const borderPromises = borders.map(async (code) => {
-      const borderRes = await fetch(`https://restcountries.com/v3.1/alpha/${code}`);
-      if (!borderRes.ok) throw new Error("Failed to load bordering countries");
-      const borderData = await borderRes.json();
-      return borderData[0];
-    });
+   
+    const neighborPromises = borders.map(code =>
+      fetchJSON(`https://restcountries.com/v3.1/alpha/${encodeURIComponent(code)}`)
+    );
 
-    const borderCountries = await Promise.all(borderPromises);
+    const neighborsData = await Promise.all(neighborPromises);
 
     
-    bordersSection.innerHTML = borderCountries
-      .map(
-        (b) => `
-        <div style="display:flex; align-items:center; gap:10px; margin:8px 0; padding:8px; border:1px solid #ddd; border-radius:10px;">
-          <img src="${b.flags.svg}" alt="${b.name.common} flag" style="width:50px; height:auto; border-radius:4px;">
-          <span>${b.name.common}</span>
+    const neighbors = neighborsData
+      .map(arr => Array.isArray(arr) ? arr[0] : null)
+      .filter(Boolean);
+
+    borderingCountries.innerHTML = neighbors.map(n => `
+      <div class="border-card">
+        <img src="${n.flags.svg}" alt="${n.name.common} flag">
+        <div>
+          <strong>${n.name.common}</strong>
         </div>
-      `
-      )
-      .join("");
+      </div>
+    `).join('');
+
+    show(borderingCountries);
 
   } catch (error) {
-
-    errorBox.style.display = "block";
-    errorBox.textContent =
-      error.message === "Country not found"
-        ? "Country not found. Please check the spelling and try again."
-        : "Something went wrong. Please try again.";
+    errorMessage.textContent = error.message || "Something went wrong. Please try again.";
+    show(errorMessage);
   } finally {
-    spinner.style.display = "none";
+    
+    hide(spinner);
   }
 }
 
-// Event listeners
-document.getElementById('search-btn').addEventListener('click', () => {
-  const country = document.getElementById('country-input').value;
-  searchCountry(country);
+
+searchBtn.addEventListener('click', () => {
+  searchCountry(countryInput.value);
 });
 
-// Enter key trigger (required)
-document.getElementById("country-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    const country = document.getElementById("country-input").value;
-    searchCountry(country);
+
+countryInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    searchCountry(countryInput.value);
   }
 });
