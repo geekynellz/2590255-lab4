@@ -45,7 +45,7 @@ async function searchCountry(countryName) {
     show(spinner);
 
     
-    const data = await fetchJSON(`https://restcountries.com/v3.1/name/${encodeURIComponent(trimmed)}`);
+    const data = await fetchJSON(`https://restcountries.com/v3.1/name/${encodeURIComponent(trimmed)}?fullText=true`)
 
     
     const country = data[0];
