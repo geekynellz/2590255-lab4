@@ -4,6 +4,7 @@ const spinner = document.getElementById('loading-spinner');
 const countryInfo = document.getElementById('country-info');
 const borderingCountries = document.getElementById('bordering-countries');
 const errorMessage = document.getElementById('error-message');
+spinner.classList.add('hidden');
 
 function show(el) {
   el.classList.remove('hidden');
